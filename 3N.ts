@@ -50,7 +50,7 @@ class Cell {
     }
     
     element() {
-        return "<span id='" + this.point.x + "," + this.point.y + "'>" + this.value + "</span>"
+        return "<div class='cell' data-value='" + this.value + "' data-column='" + this.point.x + "' data-row='" + this.point.y + "'>" + this.value + "</div>"
     }
 }
 
@@ -72,9 +72,10 @@ class Board {
         //Populate board
         var cell : Cell = null;
         var validateDirections : number[] = [this.directions.up, this.directions.left];
+        var inner : string = "";
         for (var row : number = 0; row < this.settings.rows; row++) {
             this.cells[row] = [];
-            this.element.innerHTML = this.element.innerHTML + "<div id='row" + row + "'>";
+            inner = inner + "<div class='row' id='row" + row + "'>";
             for (var column : number = 0; column < this.settings.columns; column++) {
                 var v : number = getRandomInt(1, this.settings.numberOfObjects);
                 cell = new Cell(row, column, v);
@@ -84,10 +85,26 @@ class Board {
                     matches = this.getMatches(cell, validateDirections);
                 }
                 this.cells[row][column] = cell;
-                this.element.innerHTML = this.element.innerHTML + cell.element();
+                inner = inner + cell.element();
             }
-            this.element.innerHTML = this.element.innerHTML + "</div>"
+            inner = inner + "</div>"
         }
+        this.element.innerHTML = inner;
+        
+        //Colour board
+        $("[data-value='1']").addClass("one");
+        $("[data-value='2']").addClass("two");
+        $("[data-value='3']").addClass("three");
+        $("[data-value='4']").addClass("four");
+        $("[data-value='5']").addClass("five");
+        
+        //Set on-click
+        $(".cell").click(function() {
+            $(this).toggleClass("clicked");
+            if ($(".clicked").length > 1) {
+                //check for match
+            }
+        })
     }
     
     getMatches(c : Cell, dir : number[]) {
