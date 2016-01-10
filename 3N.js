@@ -7,6 +7,7 @@ var Config = (function () {
         this.numberOfObjects = 5;
         this.rows = 10;
         this.columns = 10;
+        this.easy = true;
     }
     return Config;
 })();
@@ -38,7 +39,37 @@ var Cell = (function () {
         this.value = v;
     }
     Cell.prototype.element = function () {
-        return "<div class='cell' data-value='" + this.value + "' data-column='" + this.point.x + "' data-row='" + this.point.y + "'>" + this.value + "</div>";
+        var elem = document.createElement("div");
+        elem.classList.add("cell");
+        elem.setAttribute("data-value", "" + this.value);
+        elem.setAttribute("data-column", "" + this.point.y);
+        elem.setAttribute("data-row", "" + this.point.x);
+        elem.innerText = "" + this.value;
+        if (this.clicked) {
+            elem.classList.add("clicked");
+        }
+        var className = "";
+        if (this.value === 1) {
+            className = "one";
+        }
+        else if (this.value === 2) {
+            className = "two";
+        }
+        else if (this.value === 3) {
+            className = "three";
+        }
+        else if (this.value === 4) {
+            className = "four";
+        }
+        else if (this.value === 5) {
+            className = "five";
+        }
+        elem.classList.add(className);
+        /*        var e : string = "<div class='cell' data-value='" + this.value + "' data-column='" + this.point.x + "' data-row='" + this.point.y + "'>" + this.value + "</div>";*/
+        //hack to get inner html as string
+        var wrap = document.createElement("div");
+        wrap.appendChild(elem.cloneNode(true));
+        return wrap.innerHTML;
     };
     return Cell;
 })();
@@ -52,43 +83,102 @@ var Board = (function () {
         this.settings = config;
         this.cells = [];
         this.element = e;
+        this.score = 0;
         //Populate board
-        var cell = null;
+        this.initialiseCells();
+        this.draw();
+        var that = this; //cache current Board object for on-click method
+        //Set on-click
+        $(".cell").click(function () {
+            var clickedCells = $(".clicked");
+            var element = $(this);
+            that.processSelect(clickedCells, element);
+        });
+    }
+    Board.prototype.processSelect = function (clickedCells, element) {
+        var p = this.getPoint(element);
+        if (this.cells[p.x][p.y].clicked) {
+            element.toggleClass("clicked");
+            this.cells[p.x][p.y].clicked = false;
+            return;
+        }
+        else if (clickedCells.length === 0) {
+            element.toggleClass("clicked");
+            this.cells[p.x][p.y].clicked = true;
+        }
+        else if (clickedCells.length === 1) {
+            var adjacentCells = this.findAdjacentCells(p);
+            var selected = null;
+            for (var i = 0; i < adjacentCells.length; i++) {
+                if (adjacentCells[i].clicked) {
+                    element.toggleClass("clicked");
+                    this.cells[p.x][p.y].clicked = true;
+                    if (!this.settings.easy) {
+                    }
+                    //Perform swap on model
+                    var points = [];
+                    clickedCells = $(".clicked"); //refresh clicked list
+                    for (var i = 0; i < clickedCells.length; i++) {
+                        points.push(this.getPointHtml(clickedCells[0]));
+                        points.push(this.getPointHtml(clickedCells[1]));
+                    }
+                    var tmp0 = this.getCell(points[0]);
+                    var tmp1 = this.getCell(points[1]);
+                    this.cells[tmp0.point.x][tmp0.point.y] = tmp1;
+                    this.cells[tmp1.point.x][tmp1.point.y] = tmp0;
+                    this.draw();
+                }
+            }
+        }
+    };
+    Board.prototype.getPoint = function (element) {
+        return new Point(parseInt(element.attr("data-row")), parseInt(element.attr("data-column")));
+    };
+    Board.prototype.getPointHtml = function (element) {
+        return new Point(parseInt(element.attributes.getNamedItem("data-row").value), parseInt(element.attributes.getNamedItem("data-column").value));
+    };
+    Board.prototype.initialiseCells = function () {
+        var tmp = null;
         var validateDirections = [this.directions.up, this.directions.left];
-        var inner = "";
         for (var row = 0; row < this.settings.rows; row++) {
             this.cells[row] = [];
-            inner = inner + "<div class='row' id='row" + row + "'>";
             for (var column = 0; column < this.settings.columns; column++) {
                 var v = getRandomInt(1, this.settings.numberOfObjects);
-                cell = new Cell(row, column, v);
-                var matches = this.getMatches(cell, validateDirections);
+                tmp = new Cell(row, column, v);
+                var matches = this.getMatches(tmp, validateDirections);
                 while (matches.length > 0) {
-                    cell.value = getRandomInt(1, this.settings.numberOfObjects);
-                    matches = this.getMatches(cell, validateDirections);
+                    tmp.value = getRandomInt(1, this.settings.numberOfObjects);
+                    matches = this.getMatches(tmp, validateDirections);
                 }
-                this.cells[row][column] = cell;
-                inner = inner + cell.element();
+                this.cells[row][column] = tmp;
+            }
+        }
+    };
+    Board.prototype.draw = function () {
+        //Add html
+        var inner = "";
+        for (var row = 0; row < this.settings.rows; row++) {
+            inner = inner + "<div class='row' id='row" + row + "'>";
+            for (var column = 0; column < this.settings.columns; column++) {
+                inner = inner + this.cells[row][column].element();
             }
             inner = inner + "</div>";
         }
         this.element.innerHTML = inner;
-        //Colour board
-        $("[data-value='1']").addClass("one");
-        $("[data-value='2']").addClass("two");
-        $("[data-value='3']").addClass("three");
-        $("[data-value='4']").addClass("four");
-        $("[data-value='5']").addClass("five");
-        //Set on-click
-        $(".cell").click(function () {
-            $(this).toggleClass("clicked");
-            if ($(".clicked").length > 1) {
-            }
-        });
-    }
-    Board.prototype.getMatches = function (c, dir) {
-        var matches = [];
-        //Evaluate matches 
+    };
+    Board.prototype.findAdjacentCells = function (p) {
+        var adjacentCells = [];
+        var matchDirections = [this.directions.up, this.directions.down, this.directions.left, this.directions.right];
+        var cell = this.getCell(p);
+        var functions = this.getDirectionFunctions(cell, matchDirections);
+        for (var i = 0; i < functions.length; i++) {
+            var p1 = functions[i](1);
+            adjacentCells.push(this.getCell(p1));
+        }
+        return adjacentCells;
+    };
+    Board.prototype.getDirectionFunctions = function (c, dir) {
+        //Get candidates in specified directions (if in range) 
         var functions = [];
         for (var i = 0; i < dir.length; i++) {
             if (dir[i] === this.directions.up && c.point.x > 1) {
@@ -104,6 +194,12 @@ var Board = (function () {
                 functions.push(c.point.right.bind(c.point));
             }
         }
+        return functions;
+    };
+    Board.prototype.getMatches = function (c, dir) {
+        var matches = [];
+        //Evaluate matches 
+        var functions = this.getDirectionFunctions(c, dir);
         for (var i = 0; i < functions.length; i++) {
             var p1 = functions[i](1);
             var p2 = functions[i](2);
@@ -145,7 +241,8 @@ var Game = (function () {
     };
     Game.gameState = { begin: 0, playerTurn: 1, processTurn: 2, finished: 3 };
     Game.msgs = {
-        gameStart: "Start!"
+        gameStart: "Start!",
+        calculating: "Calculating"
     };
     return Game;
 })();
